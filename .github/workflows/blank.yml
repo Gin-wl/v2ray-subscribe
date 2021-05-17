@@ -1,17 +1,14 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI
+name: price daily
 
 # Controls when the action will run. 
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
+  # Triggers the workflow on push or pull request events but only for the master branch
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+  schedule:
+  - cron: '59 23 * * *'
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -22,15 +19,46 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+      # 输出IP
+      - name: IP
+        run: sudo curl ifconfig.me
+      # 设置服务器时区为东八区 
+      - name: Set time zone
+        run: sudo timedatectl set-timezone 'Asia/Shanghai'
+      
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
+      
+      # 使用python环境
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v2
+        with:
+          # Semantic version range syntax or exact version of a Python version
+          python-version: '3.x'
+          # Optional - x64 or x86 architecture, defaults to x64
+          architecture: 'x64'
+      # 打印pyton版本
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
-
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - name: install python libs
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          pip3 install Py3AMF
+          pip3 install jsonlines 
+      # 执行python脚本
+      - name: get select
+        run: python py/select.py
+	  # git 提交文件
+      - name: Commit files
+        run: |
+          git config --local user.email "user.email"
+          git config --local user.name "user.name"
+          git add .
+          git commit -m "`date '+%Y-%m-%d %H:%M:%S'`" #动态提交信息（更改：不需动态提交 保持同一文件名）
+      # 推送到github仓库
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
